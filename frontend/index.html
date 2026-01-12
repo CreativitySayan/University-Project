@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Cybercrime Withdrawal Prediction</title>
+    <meta charset="utf-8" />
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial;
+        }
+
+        #container {
+            display: flex;
+            height: 100vh;
+        }
+
+        #form {
+            width: 30%;
+            padding: 15px;
+            background: #f4f4f4;
+            overflow-y: auto;
+        }
+
+        #map {
+            width: 70%;
+        }
+
+        input,
+        select,
+        button {
+            width: 100%;
+            margin-bottom: 8px;
+            padding: 8px;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="container">
+
+        <!-- USER FORM -->
+        <div id="form">
+            <h3>Complaint Details</h3>
+
+            <input id="time_since" type="number" placeholder="Time since complaint (min)">
+            <input id="hour" type="number" placeholder="Complaint hour (0-23)">
+            <input id="amount" type="number" placeholder="Fraud amount">
+            <input id="failed_txns" type="number" placeholder="Failed transactions">
+            <input id="fraud_count" type="number" placeholder="Fraud count (30d)">
+            <input id="withdraw_freq" type="number" placeholder="Withdrawal freq (30d)">
+
+            <select id="night">
+                <option value="0">Day</option>
+                <option value="1">Night</option>
+            </select>
+
+            <select id="amount_bucket">
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+            </select>
+
+            <select id="fraud_type">
+                <option value="UPI">UPI</option>
+                <option value="Card">Card</option>
+            </select>
+
+            <select id="bank_type">
+                <option value="private">Private</option>
+                <option value="public">Public</option>
+            </select>
+
+            <input id="day" type="number" placeholder="Day of week (0-6)">
+            <select id="weekend">
+                <option value="0">Weekday</option>
+                <option value="1">Weekend</option>
+            </select>
+
+            <input id="avg_time" type="number" placeholder="Avg time to withdraw">
+            <input id="prior_cases" type="number" placeholder="Prior fraud cases">
+
+            <button type="button" onclick="predict()">Predict</button>
+            <p id="result"></p>
+        </div>
+
+        <!-- MAP -->
+        <div id="map"></div>
+    </div>
+
+    <script>
+        const map = L.map('map').setView([12.9716, 77.5946], 12);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        let markers = [];
+
+        function clearMarkers() {
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+        }
+
+        async function predict() {
+            try {
+                console.log("Predict button clicked");
+
+                clearMarkers();
+
+                const data = {
+                    time_since_complaint_min: Number(document.getElementById("time_since").value),
+                    complaint_hour: Number(document.getElementById("hour").value),
+                    fraud_amount: Number(document.getElementById("amount").value),
+                    num_failed_txns_recent: Number(document.getElementById("failed_txns").value),
+                    account_fraud_count_30d: Number(document.getElementById("fraud_count").value),
+                    account_withdrawal_freq_30d: Number(document.getElementById("withdraw_freq").value),
+                    is_night_time: Number(document.getElementById("night").value),
+                    amount_bucket: document.getElementById("amount_bucket").value,
+                    fraud_type: document.getElementById("fraud_type").value,
+                    bank_type: document.getElementById("bank_type").value,
+                    day_of_week: Number(document.getElementById("day").value),
+                    is_weekend: Number(document.getElementById("weekend").value),
+                    avg_time_to_withdrawal_past: Number(document.getElementById("avg_time").value),
+                    num_prior_fraud_cases: Number(document.getElementById("prior_cases").value)
+                };
+
+                console.log("Sending data:", data);
+
+                const response = await fetch("/predict", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    throw new Error("API error: " + response.status);
+                }
+
+                const result = await response.json();
+                console.log("Received response:", result);
+
+                document.getElementById("result").innerText =
+                    `Action: ${result.action} | Time: ${result.estimated_time_minutes} min`;
+
+                const atmCoords = {
+                    0: [12.9700, 77.5900],
+                    1: [12.9750, 77.6000],
+                    2: [12.9650, 77.5800]
+                };
+
+                result.top_atms.forEach(atm => {
+                    const coord = atmCoords[atm.atm_index];
+                    if (!coord) return;
+
+                    const color = atm.risk_score > 0 ? "red" : "green";
+
+                    const marker = L.circleMarker(coord, {
+                        radius: 10,
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.8
+                    })
+                        .addTo(map)
+                        .bindPopup(
+                            `<b>ATM ${atm.atm_index}</b><br>
+                     Risk: ${atm.risk_score}<br>
+                     Action: ${result.action}`
+                        );
+
+                    markers.push(marker);
+                });
+
+            } catch (err) {
+                console.error("Prediction failed:", err);
+                alert("Prediction failed. Check console.");
+            }
+        }
+    </script>
+
+</body>
+
+</html>
