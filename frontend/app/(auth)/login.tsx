@@ -2,18 +2,50 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function LoginScreen() {
+  const router = useRouter();
+  const { setUser } = useAuth();
+
   const handleLogin = async () => {
     try {
       const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
       // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-      const redirectUrl = `${BACKEND_URL}/(auth)/callback`;
-      const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+      const redirectUrl = BACKEND_URL + '/(auth)/callback';
+      const authUrl = 'https://auth.emergentagent.com/?redirect=' + encodeURIComponent(redirectUrl);
       
       await Linking.openURL(authUrl);
     } catch (error) {
       console.error('Login error:', error);
+    }
+  };
+
+  const handleDemoMode = async () => {
+    try {
+      // Use the test session token
+      const demoToken = 'test_session_web_123';
+      await AsyncStorage.setItem('session_token', demoToken);
+      
+      // Set demo user
+      const demoUser = {
+        user_id: 'test-user-web',
+        email: 'demo@cyberguard.com',
+        name: 'Demo User',
+        role: 'admin',
+        created_at: new Date().toISOString()
+      };
+      
+      setUser(demoUser);
+      
+      // Navigate to dashboard
+      setTimeout(() => {
+        router.replace('/(tabs)/dashboard');
+      }, 100);
+    } catch (error) {
+      console.error('Demo mode error:', error);
     }
   };
 
@@ -36,6 +68,11 @@ export default function LoginScreen() {
         <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
           <Ionicons name="logo-google" size={24} color="#fff" />
           <Text style={styles.loginButtonText}>Sign in with Google</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.demoButton} onPress={handleDemoMode}>
+          <Ionicons name="rocket" size={24} color="#3B82F6" />
+          <Text style={styles.demoButtonText}>Try Demo Mode</Text>
         </TouchableOpacity>
 
         <Text style={styles.footer}>Secure authentication powered by Emergent</Text>
@@ -106,6 +143,23 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#fff',
+  },
+  demoButton: {
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderWidth: 2,
+    borderColor: '#3B82F6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+    marginBottom: 16,
+  },
+  demoButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#3B82F6',
   },
   footer: {
     fontSize: 12,
