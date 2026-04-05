@@ -9,11 +9,14 @@ export default function Index() {
 
   useEffect(() => {
     if (!loading) {
-      if (isAuthenticated) {
-        router.replace('/(tabs)/dashboard');
-      } else {
-        router.replace('/(auth)/login');
-      }
+      // Delay navigation to ensure Root Layout is mounted
+      setTimeout(() => {
+        if (isAuthenticated) {
+          router.replace('/(tabs)/dashboard');
+        } else {
+          router.replace('/(auth)/login');
+        }
+      }, 100);
     }
   }, [loading, isAuthenticated]);
 

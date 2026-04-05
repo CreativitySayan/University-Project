@@ -41,10 +41,17 @@ export default function AuthCallback() {
       const sessionToken = userData.session_token || session_id;
       await AsyncStorage.setItem('session_token', sessionToken as string);
       setUser(userData);
-      router.replace('/(tabs)/dashboard');
+      
+      // Delay navigation to ensure Root Layout is mounted
+      setTimeout(() => {
+        router.replace('/(tabs)/dashboard');
+      }, 100);
     } catch (error) {
       console.error('Auth callback error:', error);
-      router.replace('/(auth)/login');
+      // Delay navigation to ensure Root Layout is mounted
+      setTimeout(() => {
+        router.replace('/(auth)/login');
+      }, 100);
     }
   };
 
